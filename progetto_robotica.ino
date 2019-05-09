@@ -10,6 +10,7 @@ TMRpcm music; //Lib object is named "music"
 String state;
 int pressedStart = 0;
 int pressedButtPins[] = {0,0,0,0};
+int startPressing = 0; //variabile che conta quanto tempo resta pigiato il tasto start. 5 secondi ---> train mode
 const int wooferPin = 2;
 const int boneSpeakerPin = 2;
 const int startButtPin = 2;
@@ -60,41 +61,51 @@ void loop() {
 
   //========= EVENTO BOTTONE START =============
   startButtState = digitalRead(startButtPin);
-  if (startButtState == LOW && pressedStart==1) //la pressione di un bottone per quanto breve, copre più cicli. questo è per far partire una volta sola il codice
+  if (startButtState == LOW && pressedStart==1){ //la pressione di un bottone per quanto breve, copre più cicli. questo è per far partire una volta sola il codice
     pressedStart=0;
-  if (startButtState == HIGH && pressedStart==0) {
-    pressedStart=1;
-    if(state == "F0"){ //stato iniziale della fun_mode. al momento se viene pigiato start allo stato F1 non succede nulla (il testimone è in attesa della risposta)
-      delay(3000);// 3 secondi di tempo per permettere al ragazzo di mettersi in ascolto (bone conductor)
-      emotion = getEmotion();
-      music.speakerPin = boneSpeakerPin;
-      music.play(emotion + ".wav");
-      state = "F1";
-    }
-
-    switchedState = 0;
-    if(state.equals("T0")){
-      startTime = millis();
-      state = "T1";
-      switchedState = 1;
-    }
-    
-    if(state.equals("T1") && switchedState == 0){
-      endTime = millis();
-      elapsedSec = (endTime-startTime)/1000;
-      if(elapsedSec < secondsThreshold){
-        music.speakerPin = wooferPin;
-        music.play(emotion + ".wav");
+    startPressing=0;
+  }
+  if (startButtState == HIGH) {
+    if(startPressing == 0)
+      startPressing = millis();
+    else
+      if((millis()-startPressing)/1000 >= 5){
+        state = "T0";
+        Serial.write("Modalità allenamento impostata");
       }
-      else{
-        music.speakerPin = wooferPin;
+    if(pressedStart==0){
+      pressedStart=1;
+      if(state == "F0"){ //stato iniziale della fun_mode. al momento se viene pigiato start allo stato F1 non succede nulla (il testimone è in attesa della risposta)
+        delay(3000);// 3 secondi di tempo per permettere al ragazzo di mettersi in ascolto (bone conductor)
+        emotion = getEmotion();
+        music.speakerPin = boneSpeakerPin;
         music.play(emotion + ".wav");
+        state = "F1";
       }
-      Serial.write("Seconds_" + elapsedSec);// possiamo cambiare il formato come preferite
-      //TODO custom feedback (sent during the run)
-      state = "T0";
+  
+      switchedState = 0;
+      if(state.equals("T0")){
+        startTime = millis();
+        state = "T1";
+        switchedState = 1;
+      }
+      
+      if(state.equals("T1") && switchedState == 0){
+        endTime = millis();
+        elapsedSec = (endTime-startTime)/1000;
+        if(elapsedSec < secondsThreshold){
+          music.speakerPin = wooferPin;
+          music.play(emotion + ".wav");
+        }
+        else{
+          music.speakerPin = wooferPin;
+          music.play(emotion + ".wav");
+        }
+        Serial.write("Seconds_" + elapsedSec);// possiamo cambiare il formato come preferite
+        //TODO custom feedback (sent during the run)
+        state = "T0";
+      }
     }
-    
   } 
 
   //========= EVENTI BOTTONI EMOZIONI =============
