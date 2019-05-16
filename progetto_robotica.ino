@@ -16,6 +16,7 @@
 #define RUN_TIME_CHARACTERISTIC_UUID "7770d78e-8fbd-44f5-865e-c0d792ef1e55"
 #define CUST_FEEDBACK_CHARACTERISTIC_UUID "b9ecb6b2-a4b8-4de9-a630-d855c1e0e054"
 #define SECONDS_THRESHOLD_CHARACTERISTIC_UUID "41086b21-669b-4bfc-8ac5-cc7a765c5882"
+#define NOTIFY_CHARACTERISTIC_UUID "46cca60d-a0e1-4518-8baa-a9e075068d66"
 BLECharacteristic *p_to_be_mimed_Characteristic;
 BLECharacteristic *p_miming_Characteristic;
 BLECharacteristic *p_set_mode_Characteristic;
@@ -23,6 +24,7 @@ BLECharacteristic *p_needs_Characteristic;
 BLECharacteristic *p_run_time_Characteristic;
 BLECharacteristic *p_cust_feedback_Characteristic;
 BLECharacteristic *p_seconds_threshold_Characteristic;
+BLECharacteristic *p_notify_Characteristic;
 
 //===== music players
 
@@ -116,6 +118,11 @@ void BLE_setup(){
                                          SECONDS_THRESHOLD_CHARACTERISTIC_UUID,
                                          BLECharacteristic::PROPERTY_READ |
                                          BLECharacteristic::PROPERTY_WRITE
+                                       );  
+  p_notify_Characteristic = pService->createCharacteristic(
+                                         NOTIFY_CHARACTERISTIC_UUID,
+                                         BLECharacteristic::PROPERTY_READ |
+                                         BLECharacteristic::PROPERTY_WRITE
                                        );                                     
   p_miming_Characteristic->setValue("def");
   p_to_be_mimed_Characteristic->setValue("def");
@@ -124,6 +131,7 @@ void BLE_setup(){
   p_run_time_Characteristic->setValue("def");
   p_cust_feedback_Characteristic->setValue("def");
   p_seconds_threshold_Characteristic->setValue("def");
+  p_notify_Characteristic->setValue("def");
   
   pService->start();
   // BLEAdvertising *pAdvertising = pServer->getAdvertising();  // this still is working for backward compatibility
@@ -181,7 +189,7 @@ void addEmotion(int emotion){
     }
   }
   if(inserted==0){
-    Serial.write("Coda piena. Impossibile impostare più di 20 emozioni");
+    p_notify_Characteristic->setValue("Coda piena. Impossibile impostare più di 20 emozioni");
   }
 }
 
@@ -268,7 +276,7 @@ void loop() {
     else
       if((millis()-startPressing)/1000 >= 5){
         state = "T0";
-        Serial.write("Modalità allenamento impostata");
+      p_notify_Characteristic->setValue("Modalità allenamento impostata");
       }
     if(pressedStart==0){
       pressedStart=1;
