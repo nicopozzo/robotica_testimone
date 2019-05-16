@@ -39,8 +39,6 @@ String state;
 int pressedStart = 0;
 int pressedButtPins[] = {0,0,0,0};
 int startPressing = 0; //variabile che conta quanto tempo resta pigiato il tasto start. 5 secondi ---> train mode
-const int wooferPin = 2;
-const int boneSpeakerPin = 2;
 const int startButtPin = 2;
 const int emotionButtPins[] = {2,2,2,2};
 const int redPin= 2;
@@ -298,7 +296,7 @@ void loop() {
       if(state.equals("T1") && switchedState == 0){
         endTime = millis();
         elapsedSec = (endTime-startTime)/1000;
-        p_run_time_Characteristic->setValue(String(elapsedSec));//TODO ripristanare a "def" quando letto da app
+        p_run_time_Characteristic->setValue(elapsedSec);//TODO ripristanare a "def" quando letto da app
         std::string thresh_in = p_seconds_threshold_Characteristic->getValue();
         if(!thresh_in.compare("def")){
           secondsThreshold = std::atoi(thresh_in.c_str());
@@ -310,7 +308,7 @@ void loop() {
         else{
           myDFPlayer_woofer.play(emotion);
         }
-        String cust_fb = p_cust_feedback_Characteristic->getValue();
+        std::string cust_fb = p_cust_feedback_Characteristic->getValue();
         if(!cust_fb.compare("def")){
           startButtState = digitalRead(startButtPin);
           while(startButtState == LOW){//lampeggia finchè il ragazzo non preme start, poi delay di 3 secondi e parte
@@ -346,7 +344,7 @@ void loop() {
       }
 
       else if(state.substring(0,1).equals("T")){ //in train mode i bottoni servono ai ragazzi per comunicare con il terapeuta
-        p_needs_Characteristic->setValue(request[i]); //da ripristinare da app a "def" una volta ricevuto
+        p_needs_Characteristic->setValue(request[i].c_str()); //da ripristinare da app a "def" una volta ricevuto
       }
     }
   }
