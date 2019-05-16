@@ -12,9 +12,17 @@
 #define TO_BE_MIMED_CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
 #define MIMING_CHARACTERISTIC_UUID "e7380755-7e83-499c-8de2-7c8169452fac"
 #define SET_MODE_CHARACTERISTIC_UUID "f2afd722-713e-4e66-8f7a-6630c3ebc931"
+#define NEEDS_CHARACTERISTIC_UUID "5d83a6ff-ced5-4398-85e7-638c66936af8"
+#define RUN_TIME_CHARACTERISTIC_UUID "7770d78e-8fbd-44f5-865e-c0d792ef1e55"
+#define CUST_FEEDBACK_CHARACTERISTIC_UUID "b9ecb6b2-a4b8-4de9-a630-d855c1e0e054"
+#define SECONDS_THRESHOLD_CHARACTERISTIC_UUID "41086b21-669b-4bfc-8ac5-cc7a765c5882"
 BLECharacteristic *p_to_be_mimed_Characteristic;
 BLECharacteristic *p_miming_Characteristic;
 BLECharacteristic *p_set_mode_Characteristic;
+BLECharacteristic *p_needs_Characteristic;
+BLECharacteristic *p_run_time_Characteristic;
+BLECharacteristic *p_cust_feedback_Characteristic;
+BLECharacteristic *p_seconds_threshold_Characteristic;
 
 //===== music players
 
@@ -89,10 +97,34 @@ void BLE_setup(){
                                          BLECharacteristic::PROPERTY_READ |
                                          BLECharacteristic::PROPERTY_WRITE
                                        );
-                                       
+  p_needs_Characteristic = pService->createCharacteristic(
+                                         NEEDS_CHARACTERISTIC_UUID,
+                                         BLECharacteristic::PROPERTY_READ |
+                                         BLECharacteristic::PROPERTY_WRITE //TODO da ripristinare a "def" da app una volta letto il dato
+                                       );
+  p_run_time_Characteristic = pService->createCharacteristic(
+                                         RUN_TIME_CHARACTERISTIC_UUID,
+                                         BLECharacteristic::PROPERTY_READ |
+                                         BLECharacteristic::PROPERTY_WRITE //TODO da ripristinare a "def" da app una volta letto il dato
+                                       );
+  p_cust_feedback_Characteristic = pService->createCharacteristic(
+                                         CUST_FEEDBACK_CHARACTERISTIC_UUID,
+                                         BLECharacteristic::PROPERTY_READ |
+                                         BLECharacteristic::PROPERTY_WRITE
+                                       );
+  p_seconds_threshold_Characteristic = pService->createCharacteristic(
+                                         SECONDS_THRESHOLD_CHARACTERISTIC_UUID,
+                                         BLECharacteristic::PROPERTY_READ |
+                                         BLECharacteristic::PROPERTY_WRITE
+                                       );                                     
   p_miming_Characteristic->setValue("def");
   p_to_be_mimed_Characteristic->setValue("def");
   p_set_mode_Characteristic->setValue("def");
+  p_needs_Characteristic->setValue("def");
+  p_run_time_Characteristic->setValue("def");
+  p_cust_feedback_Characteristic->setValue("def");
+  p_seconds_threshold_Characteristic->setValue("def");
+  
   pService->start();
   // BLEAdvertising *pAdvertising = pServer->getAdvertising();  // this still is working for backward compatibility
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
@@ -104,21 +136,39 @@ void BLE_setup(){
   Serial.println("BLE setup complete");
 }
 
+void leds_setup(){
+  pinMode(redPin, OUTPUT);
+  pinMode(greenPin, OUTPUT);
+  pinMode(bluePin, OUTPUT);
+  // Set up the rgb led names
+  uint8_t ledR = A4;
+  uint8_t ledG = A5;
+  uint8_t ledB = A18; 
+
+  ledcAttachPin(ledR, redPin); // assign RGB led pins to channels
+  ledcAttachPin(ledG, greenPin);
+  ledcAttachPin(ledB, bluePin);
+
+  // Initialize channels 
+  // channels 0-15, resolution 1-16 bits, freq limits depend on resolution
+  // ledcSetup(uint8_t channel, uint32_t freq, uint8_t resolution_bits);
+  ledcSetup(redPin, 12000, 8); // 12 kHz PWM, 8-bit resolution
+  ledcSetup(greenPin, 12000, 8);
+  ledcSetup(bluePin, 12000, 8);
+}
+
 void setup() {
   Serial.begin(115200);
   initializePlayers();
   BLE_setup();
-
+  pinMode(startButtPin, INPUT);
+  leds_setup();
   
   state = "F0";
 
   for(int i=0;i<20;i++)//inizializza la coda di emozioni impostate da app. 0=prima emozione   -1=emozione non impostata
     emotionQueue[i]=-1;
-    
-  pinMode(startButtPin, INPUT);
-  pinMode(redPin, OUTPUT);
-  pinMode(greenPin, OUTPUT);
-  pinMode(bluePin, OUTPUT);
+  
 }
 
 void addEmotion(int emotion){
@@ -180,32 +230,28 @@ void setColor(int redValue, int greenValue, int blueValue) {
   //analogWrite(redPin, redValue);   DA FIXARE, EPS NON SUPPORTA ANALOGWRITE
   //analogWrite(greenPin, greenValue);
   //analogWrite(bluePin, blueValue);
+
+  ledcWrite(redPin, redValue);
+  ledcWrite(greenPin, greenValue);
+  ledcWrite(bluePin, blueValue);
 }
 
 void ledNegativeFB(){
-  setColor(255, 0, 0);
-  delay(400);
-  setColor(255, 0, 0);
-  delay(400);
-  setColor(255, 0, 0);
-  delay(400);
-  setColor(255, 0, 0);
-  delay(400);
-  setColor(0, 0, 0);
+  led_blink(255,0,0,200,200,10);
 }
 
 void ledPositiveFB(){
-  setColor(0, 255, 0);
-  delay(400);
-  setColor(0, 255, 0);
-  delay(400);
-  setColor(0, 255, 0);
-  delay(400);
-  setColor(0, 255, 0);
-  delay(400);
-  setColor(0, 0, 0);
+  led_blink(0,255,0,200,200,10);
 }
 
+void led_blink(int r,int g, int b, int t_on, int t_off, int cycles){
+  for(int i=0;i< cycles; i++){
+    setColor(r, g, b);
+    delay(t_on);
+    setColor(0, 0, 0);
+    delay(t_off);
+  }
+}
 void loop() {
   BLE_read();
   
@@ -228,7 +274,7 @@ void loop() {
       pressedStart=1;
       if(state == "F0"){ //stato iniziale della fun_mode. al momento se viene pigiato start allo stato F1 non succede nulla (il testimone è in attesa della risposta)
         emotion = getEmotion();
-        p_miming_Characteristic->setValue(emotion);
+        p_miming_Characteristic->setValue(emotion); //COMUNICAZIONE BT ALL'APP
         delay(3000);// 3 secondi di tempo per permettere al ragazzo di mettersi in ascolto (bone conductor)
         myDFPlayer_bone.play(emotion); //emotion [0,3]
         state = "F1";
@@ -244,14 +290,29 @@ void loop() {
       if(state.equals("T1") && switchedState == 0){
         endTime = millis();
         elapsedSec = (endTime-startTime)/1000;
+        p_run_time_Characteristic->setValue(String(elapsedSec));//TODO ripristanare a "def" quando letto da app
+        std::string thresh_in = p_seconds_threshold_Characteristic->getValue();
+        if(!thresh_in.compare("def")){
+          secondsThreshold = std::atoi(thresh_in.c_str());
+          p_seconds_threshold_Characteristic->setValue("def");
+        }
         if(elapsedSec < secondsThreshold){
           myDFPlayer_woofer.play(emotion);
         }
         else{
           myDFPlayer_woofer.play(emotion);
         }
-        Serial.write("Seconds_" + elapsedSec);// possiamo cambiare il formato come preferite
-        //TODO custom feedback (sent during the run)
+        String cust_fb = p_cust_feedback_Characteristic->getValue();
+        if(!cust_fb.compare("def")){
+          startButtState = digitalRead(startButtPin);
+          while(startButtState == LOW){//lampeggia finchè il ragazzo non preme start, poi delay di 3 secondi e parte
+            led_blink(255,255,0,150,150,2);
+            startButtState = digitalRead(startButtPin);
+          }
+          delay(3000);
+          //TODO TTS CUST_FB
+          p_cust_feedback_Characteristic->setValue("def");
+        }
         state = "T0";
       }
     }
@@ -277,7 +338,7 @@ void loop() {
       }
 
       else if(state.substring(0,1).equals("T")){ //in train mode i bottoni servono ai ragazzi per comunicare con il terapeuta
-        //Serial.write(request[i]); TODO BT
+        p_needs_Characteristic->setValue(request[i]); //da ripristinare da app a "def" una volta ricevuto
       }
     }
   }
@@ -301,7 +362,7 @@ void loop() {
 //- eps -> cell : necessità del ragazzo    NEEDS
 //- eps -> cell : tempo di corsa    RUN_TIME
 //- cell -> eps : custom feedback TTS se facciamo in tempo ad implementarlo   CUST_FEEDBACK
-//- cell -> eps : distanza da correre     RUN_DISTANCE
+//- cell -> eps : tempo massimo per il feedback positivo automatico     SECONDS_THRESHOLD
 
 
 //files su sd_bone: 
