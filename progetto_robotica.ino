@@ -31,7 +31,7 @@ BLECharacteristic *p_notify_Characteristic;
 SoftwareSerial mySoftwareSerial_bone(22,23); // RX, TX
 DFRobotDFPlayerMini myDFPlayer_bone;
 
-SoftwareSerial mySoftwareSerial_woofer(20,21); // RX, TX
+SoftwareSerial mySoftwareSerial_woofer(32,33); // RX, TX
 DFRobotDFPlayerMini myDFPlayer_woofer;
 
 //=====Pins and app logic
@@ -39,8 +39,8 @@ String state;
 int pressedStart = 0;
 int pressedButtPins[] = {0,0,0,0};
 int startPressing = 0; //variabile che conta quanto tempo resta pigiato il tasto start. 5 secondi ---> train mode
-const int startButtPin = 2;
-const int emotionButtPins[] = {2,2,2,2};
+const int startButtPin = 35;
+const int emotionButtPins[] = {4,5,18,34};
 const int redPin= 2;
 const int greenPin = 2;
 const int bluePin = 2;
@@ -67,14 +67,14 @@ void initializePlayers(){
   }
   myDFPlayer_bone.volume(30);  //Set volume value. From 0 to 30
 
-  mySoftwareSerial_woofer.begin(9600);
+  /*mySoftwareSerial_woofer.begin(9600);
   if (!myDFPlayer_woofer.begin(mySoftwareSerial_woofer)) {  //Use softwareSerial to communicate with mp3.
     Serial.println(F("Unable to start Mp3Player_woofer:"));
     Serial.println(F("1.Please recheck the connection!"));
     Serial.println(F("2.Please insert the SD card!"));
     while(true);
   }
-  myDFPlayer_woofer.volume(30);  //Set volume value. From 0 to 30
+  myDFPlayer_woofer.volume(30);  //Set volume value. From 0 to 30*/
 }
 
 void BLE_setup(){
@@ -166,11 +166,15 @@ void leds_setup(){
 void setup() {
   Serial.begin(115200);
   initializePlayers();
+  Serial.println("Players initialized");
   BLE_setup();
+  Serial.println("BLE initialized");
   pinMode(startButtPin, INPUT);
   leds_setup();
+  Serial.println("LEDs initialized");
   
   state = "F0";
+  Serial.println("State F0");
 
   for(int i=0;i<20;i++)//inizializza la coda di emozioni impostate da app. 0=prima emozione   -1=emozione non impostata
     emotionQueue[i]=-1;
@@ -192,25 +196,34 @@ void addEmotion(int emotion){
 }
 
 void BLE_read(){
-
+  Serial.println("BLE read started");
   //==== SET_MODE
-  std::string cmdIn = p_set_mode_Characteristic->getValue();
-  if(cmdIn.compare("fun_mode")){
+  std::string cmdIn = "defff";//p_set_mode_Characteristic->getValue();
+  Serial.println("got set_mode value over BT: ");
+  Serial.println(cmdIn.c_str());
+  if(!cmdIn.compare("fun_mode")){
     state = "F0";
-    p_set_mode_Characteristic->setValue("def");
+    //p_set_mode_Characteristic->setValue("def");
+    Serial.println("Fun mode set from BT");
   }
-  else if(cmdIn.compare("train_mode")){
+  else if(!cmdIn.compare("train_mode")){
     state = "T0";
-    p_set_mode_Characteristic->setValue("def");
+    //p_set_mode_Characteristic->setValue("def");
+    Serial.println("Train mode set from BT");
   }
 
   //==== TO_BE_MIMED
   cmdIn = p_to_be_mimed_Characteristic->getValue();
-  if(!cmdIn.compare("def")){
+  Serial.println("got to_be_mimed value over BT: ");
+  Serial.println(cmdIn.c_str());
+  if(cmdIn.compare("def")){
     if(state.substring(0,1).equals("F")){//solo in fun_mode
       int toAdd = std::atoi(cmdIn.c_str());//cmdIn.toInt();
       addEmotion(toAdd);
       p_to_be_mimed_Characteristic->setValue("def");
+      Serial.print("Added from BT to be mimed emotion: ");
+      Serial.print(toAdd);
+      Serial.print("\n");
     }
   }
   
@@ -221,6 +234,9 @@ int getEmotion(){
   int toret = emotionQueue[0];
   if(toret==-1){ //se non ci sono emozioni impostate da app
     toret = random(4);
+    Serial.print("Picked random emotion: ");
+    Serial.print(toret);
+    Serial.print("\n");
   }
   else{
     for(int i=0;i<9;i++)//coda FIFO quindi scorre
@@ -228,6 +244,9 @@ int getEmotion(){
       emotionQueue[i]==emotionQueue[i+1];
     }
     emotionQueue[9]=-1;
+    Serial.print("Picked emotion from queue: ");
+    Serial.print(toret);
+    Serial.print("\n");
   }
   return toret;
 }
@@ -240,14 +259,25 @@ void setColor(int redValue, int greenValue, int blueValue) {
   ledcWrite(redPin, redValue);
   ledcWrite(greenPin, greenValue);
   ledcWrite(bluePin, blueValue);
+  Serial.print("Led color set to: ");
+    Serial.print("(");
+    Serial.print(redValue);
+    Serial.print(",");
+    Serial.print(greenValue);
+    Serial.print(",");
+    Serial.print(blueValue);
+    Serial.print(")");
+    Serial.print("\n");
 }
 
 void ledNegativeFB(){
   led_blink(255,0,0,200,200,10);
+    Serial.println("LED negative feedback");
 }
 
 void ledPositiveFB(){
   led_blink(0,255,0,200,200,10);
+    Serial.println("LED positive feedback");
 }
 
 void led_blink(int r,int g, int b, int t_on, int t_off, int cycles){
@@ -257,8 +287,10 @@ void led_blink(int r,int g, int b, int t_on, int t_off, int cycles){
     setColor(0, 0, 0);
     delay(t_off);
   }
+  Serial.println("LED blink");
 }
 void loop() {
+  Serial.println("Start loop");
   BLE_read();
   
 
@@ -267,40 +299,55 @@ void loop() {
   if (startButtState == LOW && pressedStart==1){ //la pressione di un bottone per quanto breve, copre più cicli. questo è per far partire una volta sola il codice
     pressedStart=0;
     startPressing=0;
+    Serial.println("Start button unpressed");
   }
   if (startButtState == HIGH) {
-    if(startPressing == 0)
+    Serial.println("Start button pressing");
+    if(startPressing == 0){
       startPressing = millis();
+      Serial.println("Start pressing timer started");
+    }
     else
       if((millis()-startPressing)/1000 >= 5){
         state = "T0";
-      p_notify_Characteristic->setValue("Modalità allenamento impostata");
+        p_notify_Characteristic->setValue("Modalità allenamento impostata");
+        Serial.println("State changed to T0 by start long pressing");
       }
     if(pressedStart==0){
       pressedStart=1;
       if(state == "F0"){ //stato iniziale della fun_mode. al momento se viene pigiato start allo stato F1 non succede nulla (il testimone è in attesa della risposta)
+        Serial.println("Start+F0 branch");
         emotion = getEmotion();
         p_miming_Characteristic->setValue(emotion); //COMUNICAZIONE BT ALL'APP
+        Serial.println("Sent over BT miming emotion");
         delay(3000);// 3 secondi di tempo per permettere al ragazzo di mettersi in ascolto (bone conductor)
         myDFPlayer_bone.play(emotion); //emotion [0,3]
+        Serial.println("Played emotion over bone conductor");
         state = "F1";
+        Serial.println("State changed to F1");
       }
   
       switchedState = 0;
       if(state.equals("T0")){
+        Serial.println("Start+T0 branch");
         startTime = millis();
         state = "T1";
+        Serial.println("State changed to T1");
         switchedState = 1;
       }
       
       if(state.equals("T1") && switchedState == 0){
+        Serial.println("Start+T1 branch");
         endTime = millis();
         elapsedSec = (endTime-startTime)/1000;
         p_run_time_Characteristic->setValue(elapsedSec);//TODO ripristanare a "def" quando letto da app
+        Serial.println("elapsed secs sent over BT");
         std::string thresh_in = p_seconds_threshold_Characteristic->getValue();
-        if(!thresh_in.compare("def")){
+        Serial.println("seconds threshold read over BT");
+        if(thresh_in.compare("def")){
           secondsThreshold = std::atoi(thresh_in.c_str());
           p_seconds_threshold_Characteristic->setValue("def");
+          Serial.println("seconds threshold updated");
         }
         if(elapsedSec < secondsThreshold){
           myDFPlayer_woofer.play(emotion);
@@ -309,10 +356,12 @@ void loop() {
           myDFPlayer_woofer.play(emotion);
         }
         std::string cust_fb = p_cust_feedback_Characteristic->getValue();
-        if(!cust_fb.compare("def")){
+        Serial.println("cust feedback read over BT");
+        if(cust_fb.compare("def")){
+        Serial.println("cust feedback set");
           startButtState = digitalRead(startButtPin);
           while(startButtState == LOW){//lampeggia finchè il ragazzo non preme start, poi delay di 3 secondi e parte
-            led_blink(255,255,0,150,150,2);
+            led_blink(255,255,0,150,150,1);
             startButtState = digitalRead(startButtPin);
           }
           delay(3000);
@@ -330,8 +379,12 @@ void loop() {
     if (emotionButtState == LOW && pressedButtPins[i] == 1) { //la pressione di un bottone per quanto breve, copre più cicli. questo è per far partire una volta sola il codice
       pressedButtPins[i] = 0;
     if (emotionButtState == HIGH && pressedButtPins[i] == 0) {
+      Serial.print("Emotion button ");
+      Serial.print(i);
+      Serial.print(" pressed\n");
       pressedButtPins[i] = 1;
       if(state == "F1"){
+        Serial.println("Emotion button + F1 branch");
         if(i==emotion){
           myDFPlayer_woofer.play(0);
           ledPositiveFB();
@@ -344,7 +397,9 @@ void loop() {
       }
 
       else if(state.substring(0,1).equals("T")){ //in train mode i bottoni servono ai ragazzi per comunicare con il terapeuta
+        Serial.println("Emotion button + T branch");
         p_needs_Characteristic->setValue(request[i].c_str()); //da ripristinare da app a "def" una volta ricevuto
+        Serial.println("Request sent over BT");
       }
     }
   }
