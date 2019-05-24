@@ -56,6 +56,9 @@ int switchedState;
 int secondsThreshold = 60;
 String request[] = {"Devo andare in bagno","Sono triste","Sono stanco","Sono contento"};
 
+//BT emulator
+String in, cmd_class, cmd;
+int inlen;
 
 void initializePlayers(){
   mySoftwareSerial_bone.begin(9600);
@@ -67,20 +70,20 @@ void initializePlayers(){
   }
   myDFPlayer_bone.volume(30);  //Set volume value. From 0 to 30
 
-  /*mySoftwareSerial_woofer.begin(9600);
+  mySoftwareSerial_woofer.begin(9600);
   if (!myDFPlayer_woofer.begin(mySoftwareSerial_woofer)) {  //Use softwareSerial to communicate with mp3.
     Serial.println(F("Unable to start Mp3Player_woofer:"));
     Serial.println(F("1.Please recheck the connection!"));
     Serial.println(F("2.Please insert the SD card!"));
     while(true);
   }
-  myDFPlayer_woofer.volume(30);  //Set volume value. From 0 to 30*/
+  myDFPlayer_woofer.volume(30);  //Set volume value. From 0 to 30
 }
 
 void BLE_setup(){
   Serial.println("Starting BLE work!");
 
-  BLEDevice::init("EPS32 testimone delle emozioni");
+  BLEDevice::init("Testimone");
   BLEServer *pServer = BLEDevice::createServer();
   BLEService *pService = pServer->createService(SERVICE_UUID);
   p_to_be_mimed_Characteristic = pService->createCharacteristic(
@@ -130,6 +133,7 @@ void BLE_setup(){
   p_cust_feedback_Characteristic->setValue("def");
   p_seconds_threshold_Characteristic->setValue("def");
   p_notify_Characteristic->setValue("def");
+
   
   pService->start();
   // BLEAdvertising *pAdvertising = pServer->getAdvertising();  // this still is working for backward compatibility
@@ -165,7 +169,7 @@ void leds_setup(){
 
 void setup() {
   Serial.begin(115200);
-  initializePlayers();
+  //initializePlayers();
   Serial.println("Players initialized");
   BLE_setup();
   Serial.println("BLE initialized");
@@ -179,6 +183,37 @@ void setup() {
   for(int i=0;i<20;i++)//inizializza la coda di emozioni impostate da app. 0=prima emozione   -1=emozione non impostata
     emotionQueue[i]=-1;
   
+}
+
+void BT_emulator_read(){
+  
+  if(Serial.available()!=0){
+    in = Serial.readString();
+    int i=0;
+    inlen = in.length();
+    for(i=0;i<inlen;i++){
+      if(in.substring(i,i+1).equals("_"))
+        break;
+    }
+    cmd_class = in.substring(0,i);
+    Serial.println(cmd_class);
+    cmd = in.substring(i+1,inlen-1);
+    Serial.println(cmd);
+    if(cmd_class.equals("tobemimed"))
+      p_to_be_mimed_Characteristic->setValue(cmd.c_str());
+      
+    else if(cmd_class.equals("setmode"))
+      p_set_mode_Characteristic->setValue(cmd.c_str());
+      
+    else if(cmd_class.equals("custfeed"))
+      p_cust_feedback_Characteristic->setValue(cmd.c_str());
+      
+    else if(cmd_class.equals("secthresh"))
+      p_seconds_threshold_Characteristic->setValue(cmd.c_str());
+    else
+      Serial.println("cmd not recognized");
+  
+}
 }
 
 void addEmotion(int emotion){
@@ -196,26 +231,21 @@ void addEmotion(int emotion){
 }
 
 void BLE_read(){
-  Serial.println("BLE read started");
   //==== SET_MODE
-  std::string cmdIn = "defff";//p_set_mode_Characteristic->getValue();
-  Serial.println("got set_mode value over BT: ");
-  Serial.println(cmdIn.c_str());
+  std::string cmdIn = p_set_mode_Characteristic->getValue();
   if(!cmdIn.compare("fun_mode")){
     state = "F0";
-    //p_set_mode_Characteristic->setValue("def");
+    p_set_mode_Characteristic->setValue("def");
     Serial.println("Fun mode set from BT");
   }
   else if(!cmdIn.compare("train_mode")){
     state = "T0";
-    //p_set_mode_Characteristic->setValue("def");
+    p_set_mode_Characteristic->setValue("def");
     Serial.println("Train mode set from BT");
   }
 
   //==== TO_BE_MIMED
   cmdIn = p_to_be_mimed_Characteristic->getValue();
-  Serial.println("got to_be_mimed value over BT: ");
-  Serial.println(cmdIn.c_str());
   if(cmdIn.compare("def")){
     if(state.substring(0,1).equals("F")){//solo in fun_mode
       int toAdd = std::atoi(cmdIn.c_str());//cmdIn.toInt();
@@ -290,9 +320,8 @@ void led_blink(int r,int g, int b, int t_on, int t_off, int cycles){
   Serial.println("LED blink");
 }
 void loop() {
-  Serial.println("Start loop");
   BLE_read();
-  
+  BT_emulator_read();
 
   //========= EVENTO BOTTONE START =============
   startButtState = digitalRead(startButtPin);
@@ -312,6 +341,7 @@ void loop() {
         state = "T0";
         p_notify_Characteristic->setValue("Modalità allenamento impostata");
         Serial.println("State changed to T0 by start long pressing");
+        startPressing = 0;
       }
     if(pressedStart==0){
       pressedStart=1;
@@ -321,7 +351,7 @@ void loop() {
         p_miming_Characteristic->setValue(emotion); //COMUNICAZIONE BT ALL'APP
         Serial.println("Sent over BT miming emotion");
         delay(3000);// 3 secondi di tempo per permettere al ragazzo di mettersi in ascolto (bone conductor)
-        myDFPlayer_bone.play(emotion); //emotion [0,3]
+        //myDFPlayer_bone.play(emotion); //emotion [0,3]
         Serial.println("Played emotion over bone conductor");
         state = "F1";
         Serial.println("State changed to F1");
@@ -350,15 +380,18 @@ void loop() {
           Serial.println("seconds threshold updated");
         }
         if(elapsedSec < secondsThreshold){
-          myDFPlayer_woofer.play(emotion);
+          //myDFPlayer_woofer.play(emotion);
+          Serial.println("played positive fb");
         }
         else{
-          myDFPlayer_woofer.play(emotion);
+          //myDFPlayer_woofer.play(emotion);
+          Serial.println("played negative fb");
         }
         std::string cust_fb = p_cust_feedback_Characteristic->getValue();
         Serial.println("cust feedback read over BT");
         if(cust_fb.compare("def")){
-        Serial.println("cust feedback set");
+          Serial.println("cust feedback set: ");
+          Serial.println(cust_fb.c_str());
           startButtState = digitalRead(startButtPin);
           while(startButtState == LOW){//lampeggia finchè il ragazzo non preme start, poi delay di 3 secondi e parte
             led_blink(255,255,0,150,150,1);
@@ -386,11 +419,13 @@ void loop() {
       if(state == "F1"){
         Serial.println("Emotion button + F1 branch");
         if(i==emotion){
-          myDFPlayer_woofer.play(0);
+          //myDFPlayer_woofer.play(0);
+          Serial.println("played positive fb");
           ledPositiveFB();
         }
         else{
-          myDFPlayer_woofer.play(1);
+          //myDFPlayer_woofer.play(1);
+          Serial.println("played negative fb");
           ledNegativeFB();
         }
         state = "F0";
