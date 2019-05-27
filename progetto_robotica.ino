@@ -28,10 +28,10 @@ BLECharacteristic *p_notify_Characteristic;
 
 //===== music players
 
-SoftwareSerial mySoftwareSerial_bone(22,23); // RX, TX
-DFRobotDFPlayerMini myDFPlayer_bone;
+SoftwareSerial mySoftwareSerial_bone(33,32); // RX, TX
+DFRobotDFPlayerMini myDFPlayer_bone; 
 
-SoftwareSerial mySoftwareSerial_woofer(32,33); // RX, TX
+SoftwareSerial mySoftwareSerial_woofer(26,25); // RX, TX
 DFRobotDFPlayerMini myDFPlayer_woofer;
 
 //=====Pins and app logic
@@ -40,10 +40,10 @@ int pressedStart = 0;
 int pressedButtPins[] = {0,0,0,0};
 int startPressing = 0; //variabile che conta quanto tempo resta pigiato il tasto start. 5 secondi ---> train mode
 const int startButtPin = 35;
-const int emotionButtPins[] = {4,5,18,34};
+const int emotionButtPins[] = {21,5,18,34};
 const int redPin= 2;
-const int greenPin = 2;
-const int bluePin = 2;
+const int greenPin = 4;
+const int bluePin = 15;
 
 
 //======Fun mode
@@ -60,25 +60,10 @@ String request[] = {"Devo andare in bagno","Sono triste","Sono stanco","Sono con
 String in, cmd_class, cmd;
 int inlen;
 
-void initializePlayers(){
-  mySoftwareSerial_bone.begin(9600);
-  if (!myDFPlayer_bone.begin(mySoftwareSerial_bone)) {  //Use softwareSerial to communicate with mp3.
-    Serial.println(F("Unable to start Mp3Player_bone:"));
-    Serial.println(F("1.Please recheck the connection!"));
-    Serial.println(F("2.Please insert the SD card!"));
-    while(true);
-  }
-  myDFPlayer_bone.volume(30);  //Set volume value. From 0 to 30
 
-  mySoftwareSerial_woofer.begin(9600);
-  if (!myDFPlayer_woofer.begin(mySoftwareSerial_woofer)) {  //Use softwareSerial to communicate with mp3.
-    Serial.println(F("Unable to start Mp3Player_woofer:"));
-    Serial.println(F("1.Please recheck the connection!"));
-    Serial.println(F("2.Please insert the SD card!"));
-    while(true);
-  }
-  myDFPlayer_woofer.volume(30);  //Set volume value. From 0 to 30
-}
+  
+
+
 
 void BLE_setup(){
   Serial.println("Starting BLE work!");
@@ -136,7 +121,7 @@ void BLE_setup(){
 
   
   pService->start();
-  // BLEAdvertising *pAdvertising = pServer->getAdvertising();  // this still is working for backward compatibility
+  //BLEAdvertising *pAdvertising = pServer->getAdvertising();  // this still is working for backward compatibility
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
   pAdvertising->addServiceUUID(SERVICE_UUID);
   pAdvertising->setScanResponse(true);
@@ -151,25 +136,94 @@ void leds_setup(){
   pinMode(greenPin, OUTPUT);
   pinMode(bluePin, OUTPUT);
   // Set up the rgb led names
-  uint8_t ledR = A4;
-  uint8_t ledG = A5;
-  uint8_t ledB = A18; 
+    /*uint8_t ledR = A4;
+    uint8_t ledG = A5;
+    uint8_t ledB = A18;  
 
   ledcAttachPin(ledR, redPin); // assign RGB led pins to channels
   ledcAttachPin(ledG, greenPin);
-  ledcAttachPin(ledB, bluePin);
+  ledcAttachPin(ledB, bluePin); 
 
   // Initialize channels 
   // channels 0-15, resolution 1-16 bits, freq limits depend on resolution
   // ledcSetup(uint8_t channel, uint32_t freq, uint8_t resolution_bits);
   ledcSetup(redPin, 12000, 8); // 12 kHz PWM, 8-bit resolution
   ledcSetup(greenPin, 12000, 8);
-  ledcSetup(bluePin, 12000, 8);
+  ledcSetup(bluePin, 12000, 8); */
 }
+
+void setColor(int redValue, int greenValue, int blueValue) {
+  //analogWrite(redPin, redValue);   DA FIXARE, EPS NON SUPPORTA ANALOGWRITE
+  //analogWrite(greenPin, greenValue);
+  //analogWrite(bluePin, blueValue);
+
+  digitalWrite(redPin,redValue);
+  digitalWrite(greenPin,greenValue);
+  digitalWrite(bluePin,blueValue);
+  Serial.print("Led color set to: ");
+    Serial.print("(");
+    Serial.print(redValue);
+    Serial.print(",");
+    Serial.print(greenValue);
+    Serial.print(",");
+    Serial.print(blueValue);
+    Serial.print(")");
+    Serial.print("\n");
+}
+
+
+void led_blink(int r,int g, int b, int t_on, int t_off, int cycles){
+  for(int i=0;i< cycles; i++){
+    setColor(r, g, b);
+    delay(t_on);
+    setColor(0, 0, 0);
+    delay(t_off);
+  }
+  Serial.println("LED blink");
+}
+
+void ledNegativeFB(){
+  digitalWrite(redPin,HIGH);
+  led_blink(HIGH,LOW,LOW,200,1000,10);
+  setColor(LOW,LOW,LOW);
+  Serial.println("LED negative feedback"); 
+  }
+  
+  
+
+
+void ledPositiveFB(){
+  digitalWrite(greenPin,HIGH);
+  led_blink(LOW,HIGH,LOW,200,1000,10);
+  setColor(LOW,LOW,LOW);
+  Serial.println("LED positive feedback"); 
+  }
+
+
 
 void setup() {
   Serial.begin(115200);
-  //initializePlayers();
+  for(int i=0;i<4;i++)
+    pinMode(emotionButtPins[i],INPUT);
+    
+   /*mySoftwareSerial_woofer.begin(9600);
+  if (!myDFPlayer_woofer.begin(mySoftwareSerial_woofer)) {  //Use softwareSerial to communicate with mp3.
+    Serial.println(F("Unable to start Mp3Player_woofer:"));
+    Serial.println(F("1.Please recheck the connection!"));
+    Serial.println(F("2.Please insert the SD card!"));
+    while(true);
+  }
+ myDFPlayer_woofer.volume(10);  //Set volume value. From 0 to 30*/
+   /*mySoftwareSerial_bone.begin(9600);
+  if (!myDFPlayer_bone.begin(mySoftwareSerial_bone)) {  //Use softwareSerial to communicate with mp3.
+    Serial.println(F("Unable to start Mp3Player_bone:"));
+    Serial.println(F("1.Please recheck the connection!"));
+    Serial.println(F("2.Please insert the SD card!"));
+    while(true);
+  }
+  myDFPlayer_bone.volume(8);  //Set volume value. From 0 to 30 */
+  
+
   Serial.println("Players initialized");
   BLE_setup();
   Serial.println("BLE initialized");
@@ -182,7 +236,11 @@ void setup() {
 
   for(int i=0;i<20;i++)//inizializza la coda di emozioni impostate da app. 0=prima emozione   -1=emozione non impostata
     emotionQueue[i]=-1;
+
+  //myDFPlayer_woofer.next();///TEST
+
   
+  delay(2000);
 }
 
 void BT_emulator_read(){
@@ -251,6 +309,7 @@ void BLE_read(){
       int toAdd = std::atoi(cmdIn.c_str());//cmdIn.toInt();
       addEmotion(toAdd);
       p_to_be_mimed_Characteristic->setValue("def");
+      BLEDevice::startAdvertising();
       Serial.print("Added from BT to be mimed emotion: ");
       Serial.print(toAdd);
       Serial.print("\n");
@@ -281,44 +340,6 @@ int getEmotion(){
   return toret;
 }
 
-void setColor(int redValue, int greenValue, int blueValue) {
-  //analogWrite(redPin, redValue);   DA FIXARE, EPS NON SUPPORTA ANALOGWRITE
-  //analogWrite(greenPin, greenValue);
-  //analogWrite(bluePin, blueValue);
-
-  ledcWrite(redPin, redValue);
-  ledcWrite(greenPin, greenValue);
-  ledcWrite(bluePin, blueValue);
-  Serial.print("Led color set to: ");
-    Serial.print("(");
-    Serial.print(redValue);
-    Serial.print(",");
-    Serial.print(greenValue);
-    Serial.print(",");
-    Serial.print(blueValue);
-    Serial.print(")");
-    Serial.print("\n");
-}
-
-void ledNegativeFB(){
-  led_blink(255,0,0,200,200,10);
-    Serial.println("LED negative feedback");
-}
-
-void ledPositiveFB(){
-  led_blink(0,255,0,200,200,10);
-    Serial.println("LED positive feedback");
-}
-
-void led_blink(int r,int g, int b, int t_on, int t_off, int cycles){
-  for(int i=0;i< cycles; i++){
-    setColor(r, g, b);
-    delay(t_on);
-    setColor(0, 0, 0);
-    delay(t_off);
-  }
-  Serial.println("LED blink");
-}
 void loop() {
   BLE_read();
   BT_emulator_read();
@@ -345,7 +366,7 @@ void loop() {
       }
     if(pressedStart==0){
       pressedStart=1;
-      if(state == "F0"){ //stato iniziale della fun_mode. al momento se viene pigiato start allo stato F1 non succede nulla (il testimone è in attesa della risposta)
+      if(state == "F0"){ //stato iniziale della fun_mode. al momento se viene pigiato start allo stato F1 non succede nulla (il imone è in attesa della risposta)
         Serial.println("Start+F0 branch");
         emotion = getEmotion();
         p_miming_Characteristic->setValue(emotion); //COMUNICAZIONE BT ALL'APP
@@ -408,23 +429,24 @@ void loop() {
 
   //========= EVENTI BOTTONI EMOZIONI =============
   for(int i=0;i<4;i++){
+    
     emotionButtState = digitalRead(emotionButtPins[i]);
     if (emotionButtState == LOW && pressedButtPins[i] == 1) { //la pressione di un bottone per quanto breve, copre più cicli. questo è per far partire una volta sola il codice
-      pressedButtPins[i] = 0;
+      pressedButtPins[i] = 0;}
     if (emotionButtState == HIGH && pressedButtPins[i] == 0) {
-      Serial.print("Emotion button ");
+      Serial.println("Emotion button ");
       Serial.print(i);
       Serial.print(" pressed\n");
       pressedButtPins[i] = 1;
       if(state == "F1"){
         Serial.println("Emotion button + F1 branch");
         if(i==emotion){
-          //myDFPlayer_woofer.play(0);
+          //myDFPlayer_woofer.next();
           Serial.println("played positive fb");
           ledPositiveFB();
         }
         else{
-          //myDFPlayer_woofer.play(1);
+         // myDFPlayer_woofer.next();
           Serial.println("played negative fb");
           ledNegativeFB();
         }
@@ -440,7 +462,7 @@ void loop() {
   }
   delay(100);
 }
-}
+
 
 
 
@@ -468,4 +490,4 @@ void loop() {
 //3.mp3   Emozione 4
 //files su sd_woofer:
 //0.mp3   Feedback positivo (TODO metterne più di uno e riprodurli a random)
-//1.mp3   Feedback negativo (TODO metterne più di uno e riprodurli a random)
+//1.mp3   Feedback negativo (TODO metterne più di uno e riprodurli a random)  
